@@ -528,6 +528,22 @@ class SurePetFlapAPI(object):
             response = self._get_data(url)
             self.cache['pet_status'][household_id][pet_id] = response['data']
 
+    def set_flap_lock( self, flap_id = None, lock_state = None, household_id = None ):
+        """
+        Set flap lock mode
+        """
+        if self.__read_only:
+            self.__read_only = False
+        household_id = household_id or self.default_household
+        household = self.households[household_id]
+        if (flap_id is None and household['default_flap'] is None):
+            return
+        params = (
+            ('locking', lock_state),
+        )
+        url = '%s/%s/control' % (_URL_DEV, flap_id,)
+        response = self._put_data(url, params)
+
     #
     # Low level remote API wrappers.  Do not use.
     #
@@ -563,6 +579,20 @@ class SurePetFlapAPI(object):
                 }
         return self.cache[url]['LastData']
 
+    def _put_data( self, url, params = None ):
+        if self.__read_only:
+            self.__read_only = False
+        headers = self._create_header()
+        if headers is not None:
+            response = self._api_put(url, headers=headers, params=params)
+            if response.status_code in [304, 404, 500, 502, 503, 504,]:
+                if response.status_code == 404:
+                    raise IndexError( url )
+                if response.status_code == 304:
+                    raise IndexError( url )
+                return response
+        return response
+
     def _create_header( self, ETag = None ):
         headers={
             'Connection': 'keep-alive',
@@ -589,6 +619,18 @@ class SurePetFlapAPI(object):
             if 'headers' in kwargs and 'Authorization' in kwargs['headers']:
                 kwargs['headers']['Authorization']='Bearer ' + self.cache['AuthToken']
                 r = self.s.get( url, *args, **kwargs )
+            else:
+                raise SPAPIException( 'Auth required but not present in header' )
+        return r
+
+    def _api_put( self, url, *args, **kwargs ):
+        r = self.s.put( url, *args, **kwargs )
+        if r.status_code == 401:
+            # Retry once
+            #self.update_authtoken( force = True )
+            if 'headers' in kwargs and 'Authorization' in kwargs['headers']:
+                kwargs['headers']['Authorization']='Bearer ' + self.cache['AuthToken']
+                r = self.s.put( url, *args, **kwargs )
             else:
                 raise SPAPIException( 'Auth required but not present in header' )
         return r

@@ -152,5 +152,21 @@ def cmd_set_hid( sp, args ):
     else:
         exit( 'Household ID %s not known' % (hid,) )
 
+@cmd
+def cmd_set_flap_lock( sp, args ):
+    """
+    Set default household ID
+    """
+    try:
+        fid = int(args.cmd[1])
+        ls = int(args.cmd[2])
+    except (ValueError, IndexError,):
+        exit( 'need valid flap ID and lock state integer' )
+
+    if fid in sp.household['flaps']:
+        sp.set_flap_lock( flap_id = fid, lock_state = ls )
+    else:
+        exit( 'Flap ID %s not known' % (fid,) )
+
 if __name__ == '__main__':
     main( sys.argv )
